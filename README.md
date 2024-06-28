@@ -4,33 +4,33 @@ The E_Nose project is a desktop application that interfaces with an ESP32-based 
 
 ## Project Structure
 
-.
-├── DesktopApp
-│   ├── ENose.py
-│   ├── **pycache**
-│   │   ├── main_window.cpython-310.pyc
-│   │   ├── plot_canvas.cpython-310.pyc
-│   │   └── serial_worker.cpython-310.pyc
-│   ├── main_window.py
-│   ├── plot_canvas.py
-│   ├── requirements.txt
-│   ├── serial_worker.py
-│   └── temp
-│   ├── ENose.py
-│   ├── requirements.txt
-│   ├── try.cpp
-│   ├── try_main_window.py
-│   ├── worked_device.cpp
-│   └── worked_main_window.py
-├── Device
-│   ├── E-nose-V1
-│   │   └── E-nose-V1.ino
-│   └── E-nose-V1_1
-│   ├── E-nose-V1_1.ino
-│   └── src
-│   ├── Relay.cpp
-│   └── Relay.h
-└── README.md
+    .
+    ├── DesktopApp
+    │   ├── ENose.py
+    │   ├── **pycache**
+    │   │   ├── main_window.cpython-310.pyc
+    │   │   ├── plot_canvas.cpython-310.pyc
+    │   │   └── serial_worker.cpython-310.pyc
+    │   ├── main_window.py
+    │   ├── plot_canvas.py
+    │   ├── requirements.txt
+    │   ├── serial_worker.py
+    │   └── temp
+    │   ├── ENose.py
+    │   ├── requirements.txt
+    │   ├── try.cpp
+    │   ├── try_main_window.py
+    │   ├── worked_device.cpp
+    │   └── worked_main_window.py
+    ├── Device
+    │   ├── E-nose-V1
+    │   │   └── E-nose-V1.ino
+    │   └── E-nose-V1_1
+    │   ├── E-nose-V1_1.ino
+    │   └── src
+    │   ├── Relay.cpp
+    │   └── Relay.h
+    └── README.md
 
 ## Getting Started
 
