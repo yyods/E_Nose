@@ -90,4 +90,4 @@ The E_Nose project is a desktop application that interfaces with an ESP32-based 
 
 ## License
 
-This project is licensed under the MIT License.
+    This project is licensed under the MIT License.
