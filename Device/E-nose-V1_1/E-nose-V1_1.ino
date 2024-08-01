@@ -219,6 +219,14 @@ void loop() {
       temperature = dht.readTemperature();
       humidity = dht.readHumidity();
 
+      // Check for NaN values and set default to 0
+      if (isnan(temperature)) {
+        temperature = 0.0;
+      }
+      if (isnan(humidity)) {
+        humidity = 0.0;
+      }
+
       // Create JSON formatted string
       String jsonData = "{";
       jsonData += "\"itemNumber\":" + String(itemNumber++) + ",";
