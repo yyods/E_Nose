@@ -1,21 +1,42 @@
-# main_window.py
 import json
 import csv
 import time
 import serial
+import serial.tools.list_ports
 from PyQt5.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QAction, QMenuBar, QMenu, QInputDialog, QLineEdit, QStackedWidget
-from PyQt5.QtCore import QThread, QTimer, Qt
+from PyQt5.QtCore import QThread, QTimer, Qt, pyqtSignal, QObject
 from PyQt5.QtGui import QIntValidator
-from serial_worker import SerialWorker
 from plot_canvas import PlotCanvas
+
+class SerialReader(QObject):
+    data_received = pyqtSignal(str)
+
+    def __init__(self, serial_connection):
+        super().__init__()
+        self.serial_connection = serial_connection
+        self.running = True
+
+    def run(self):
+        while self.running:
+            if self.serial_connection.in_waiting > 0:
+                data = self.serial_connection.readline().decode('latin-1').strip()
+                self.data_received.emit(data)
+
+    def stop(self):
+        self.running = False
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
         self.serial_port = None
+        self.serial_connection = None
         self.worker = None
         self.thread = None
+
+        # VID and PID for the CP210x USB to UART Bridge
+        self.VID = 0x10C4  # Replace with your actual Vendor ID
+        self.PID = 0xEA60  # Replace with your actual Product ID
 
         # Data containers
         self.gas_values = [[] for _ in range(7)]
@@ -31,46 +52,62 @@ class MainWindow(QMainWindow):
         self.show()
 
     def try_connect(self):
+        self.serial_port = self.find_serial_port(self.VID, self.PID)
+
+        if self.serial_port:
+            try:
+                self.serial_connection = serial.Serial(self.serial_port, 115200, timeout=1)
+                self.serial_connection.write(b'I')  # Send identification request
+                response = self.serial_connection.readline().decode('latin-1').strip()
+                if response == "ESP32_DEVICE_IDENTIFIER":
+                    self.status_label_bottom.setText("Connected to ESP32")
+                    self.send_command('C')  # Send 'C' to start connection
+                    self.start_keep_alive()
+                    self.start_reading()
+                    self.load_settings()  # Load settings after connection
+                else:
+                    self.status_label_bottom.setText("ESP32 not identified. Response: " + response)
+                    self.serial_connection.close()
+            except Exception as e:
+                self.status_label_bottom.setText(f"Error: {e}")
+        else:
+            self.status_label_bottom.setText("E-Nose not found. Please check the connection.")
+
+    def find_serial_port(self, vid, pid):
+        ports = list(serial.tools.list_ports.comports())
+
+        for port in ports:
+            if port.vid == vid and port.pid == pid:
+                return port.device
+
+        return None
+
+    def send_command(self, command, data=None):
         try:
-            port, description = SerialWorker.find_serial_port()
-            if port:
-                self.serial_port = port
-                self.setup_worker()
-                print(f"Connected to: {description}")
-                self.load_settings()  # Load settings after connection
-                self.start_keep_alive()
-            else:
-                self.status_label_bottom.setText("E-Nose not found. Please check the connection.")
-        except Exception as e:
-            self.status_label_bottom.setText(str(e))
-
-    def setup_worker(self):
-        self.worker = SerialWorker(self.serial_port)
-        self.thread = QThread()
-        self.worker.moveToThread(self.thread)
-
-        self.worker.data_received.connect(self.process_data)
-        self.worker.error_occurred.connect(self.handle_error)
-        self.thread.started.connect(self.worker.run)
-
-        self.thread.start()
-
-        # Send 'C' character to E-Nose to establish connection
-        ser = serial.Serial(self.serial_port, 115200, timeout=1)
-        ser.write(b'C')
-        ser.close()
+            if self.serial_connection:
+                self.serial_connection.write(command.encode())
+                if data:
+                    self.serial_connection.write(data.encode())
+        except serial.SerialException as e:
+            self.status_label_bottom.setText(f"Error: {e}")
 
     def start_keep_alive(self):
         self.keep_alive_timer.timeout.connect(self.send_keep_alive)
         self.keep_alive_timer.start(2000)  # Send keep-alive message every 2 seconds
 
     def send_keep_alive(self):
-        try:
-            ser = serial.Serial(self.serial_port, 115200, timeout=1)
-            ser.write(b'K')
-            ser.close()
-        except serial.SerialException as e:
-            print(f"Serial error: {e}")
+        self.send_command('K')
+
+    def start_reading(self):
+        self.worker = SerialReader(self.serial_connection)
+        self.thread = QThread()
+        self.worker.moveToThread(self.thread)
+        self.worker.data_received.connect(self.process_data)
+        self.thread.started.connect(self.worker.run)
+        self.thread.start()
+
+    def setup_worker(self):
+        pass  # This method is no longer needed
 
     def initUI(self):
         self.setWindowTitle("E-Nose Sensor Data")
@@ -228,10 +265,7 @@ class MainWindow(QMainWindow):
             "cycle": int(self.cycle_duration.text())
         }
         try:
-            ser = serial.Serial(self.serial_port, 115200, timeout=1)
-            ser.write(b'S')
-            ser.write(json.dumps(settings).encode('utf-8'))
-            ser.close()
+            self.send_command('S', json.dumps(settings))
         except serial.SerialException as e:
             print(f"Serial error: {e}")
 
@@ -307,14 +341,6 @@ class MainWindow(QMainWindow):
             self.thread.quit()
             self.thread.wait()
 
-    def send_command(self, command):
-        try:
-            ser = serial.Serial(self.serial_port, 115200, timeout=1)
-            ser.write(command.encode())
-            ser.close()
-        except serial.SerialException as e:
-            print(f"Serial error: {e}")
-
     def start_recording(self):
         csv_file, ok = QInputDialog.getText(self, 'CSV File Name', 'Enter CSV file name:')
         if ok and csv_file:
@@ -351,9 +377,7 @@ class MainWindow(QMainWindow):
 
     def load_settings(self):
         try:
-            ser = serial.Serial(self.serial_port, 115200, timeout=1)
-            ser.write(b'L')  # Command to load settings
-            ser.close()
+            self.send_command('L')  # Command to load settings
         except serial.SerialException as e:
             print(f"Serial error: {e}")
 
@@ -362,5 +386,7 @@ class MainWindow(QMainWindow):
             self.worker.stop()
             self.thread.quit()
             self.thread.wait()
+        if self.serial_connection:
+            self.serial_connection.close()
         self.keep_alive_timer.stop()  # Stop the keep-alive timer
         event.accept()
