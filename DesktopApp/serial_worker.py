@@ -44,7 +44,7 @@ class SerialWorker(QObject):
                     line = ser.readline().decode('latin-1').strip()
                     # print(f"Received: {line}")
                     if "ESP32_DEVICE_IDENTIFIER" in line:
-                        return port.device
+                        return port.device, port.description
             except (OSError, serial.SerialException):
                 pass
 
@@ -57,7 +57,7 @@ class SerialWorker(QObject):
                     line = ser.readline().decode('latin-1').strip()
                     # print(f"Received: {line}")
                     if "ESP32_DEVICE_IDENTIFIER" in line:
-                        return port
+                        return port, port.description
             except (OSError, serial.SerialException):
                 pass
         

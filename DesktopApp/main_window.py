@@ -1,3 +1,4 @@
+# main_window.py
 import json
 import csv
 import time
@@ -31,10 +32,11 @@ class MainWindow(QMainWindow):
 
     def try_connect(self):
         try:
-            self.serial_port = SerialWorker.find_serial_port()
-            if self.serial_port:
+            port, description = SerialWorker.find_serial_port()
+            if port:
+                self.serial_port = port
                 self.setup_worker()
-                self.status_label_bottom.setText("Connected to E-Nose")
+                print(f"Connected to: {description}")
                 self.load_settings()  # Load settings after connection
                 self.start_keep_alive()
             else:
